@@ -1,0 +1,81 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build outputs
+build/
+dist/
+.gradle
+.m2
+
+# React Native
+.watchmanconfig
+/android/.gradle
+/android/.idea
+/android/captures
+/android/gradlew
+/android/gradlew.bat
+/android/local.properties
+*.jks
+*.p8
+*.p12
+*.p7s
+*.pfx
+*.keystore
+
+# iOS
+/ios/Pods
+/ios/Podfile.lock
+/ios/xcuserdata
+/ios/DerivedData
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcworkspace/xcuserdata
+*.xcworkspace/xcshareddata
+
+# Coverage
+coverage/
+.nyc_output
+
+# Miscellaneous
+.eslintcache
+.prettierignore
+.prettierrc
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Testing
+test-results
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Database files (except schema)
+*.db
+*.sqlite
+*.sqlite3
+
+# API keys and secrets
+secrets.json
+credentials.json

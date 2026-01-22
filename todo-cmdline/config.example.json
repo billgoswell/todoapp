@@ -1,0 +1,14 @@
+{
+  "db_path": "./todo.db",
+  "log_level": "info",
+  "sync": {
+    "enabled": false,
+    "server_url": "",
+    "api_key": "",
+    "device_id": "",
+    "sync_interval_seconds": 60,
+    "auto_sync_on_change": true,
+    "retry_attempts": 3,
+    "timeout_seconds": 10
+  }
+}
