@@ -66,6 +66,10 @@ func (m *model) handleEditMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.input.itemIndex >= 0 && m.input.itemIndex < len(m.items) {
 			m.items[m.input.itemIndex].todo = editedText
 			m.items[m.input.itemIndex].todoListID = m.currentListID
+			// Get the list's clientID for stable sync reference
+			if currentList, err := m.store.GetTodoListByID(m.currentListID); err == nil {
+				m.items[m.input.itemIndex].listClientID = currentList.clientID
+			}
 			msg := handler.HandleTaskUpdate("update task", func() error {
 				return m.store.UpdateItem(m.items[m.input.itemIndex])
 			})
@@ -226,6 +230,10 @@ func (m *model) handleTaskCreationFlow(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.currentSubState == SubStateEditDueDate && m.input.itemIndex >= 0 && m.input.itemIndex < len(m.items) {
 				m.items[m.input.itemIndex].dueDate = dueDate
 				m.items[m.input.itemIndex].todoListID = m.currentListID
+				// Get the list's clientID for stable sync reference
+				if currentList, err := m.store.GetTodoListByID(m.currentListID); err == nil {
+					m.items[m.input.itemIndex].listClientID = currentList.clientID
+				}
 				msg := handler.HandleTaskUpdate("update task", func() error {
 					return m.store.UpdateItem(m.items[m.input.itemIndex])
 				})
@@ -235,13 +243,20 @@ func (m *model) handleTaskCreationFlow(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					m.invalidateCache()
 				}
 			} else {
+				// Get the list's clientID for stable sync reference
+				listClientID := ""
+				if currentList, err := m.store.GetTodoListByID(m.currentListID); err == nil {
+					listClientID = currentList.clientID
+				}
+
 				newTask := todoItem{
-					done:       false,
-					todo:       m.taskFlow.text,
-					priority:   m.taskFlow.priority,
-					dateAdded:  time.Now().Unix(),
-					dueDate:    dueDate,
-					todoListID: m.currentListID,
+					done:         false,
+					todo:         m.taskFlow.text,
+					priority:     m.taskFlow.priority,
+					dateAdded:    time.Now().Unix(),
+					dueDate:      dueDate,
+					todoListID:   m.currentListID,
+					listClientID: listClientID,
 				}
 				msg := handler.HandleTaskUpdate("create task", func() error {
 					return m.store.SaveItem(newTask)

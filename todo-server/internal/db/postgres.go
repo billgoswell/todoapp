@@ -9,6 +9,9 @@ import (
 	"github.com/billgoswell/commandlinetodo-server/internal/db/repositories"
 )
 
+// IDMapping is a client-to-server ID mapping returned from batch operations
+type IDMapping = repositories.IDMapping
+
 // DB wraps the database connection and provides access to repositories
 type DB struct {
 	conn *sql.DB
@@ -87,6 +90,7 @@ func (db *DB) Migrate() error {
 		user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 		client_id VARCHAR(36) NOT NULL,
 		todo_list_id INTEGER NOT NULL REFERENCES todo_lists(id) ON DELETE CASCADE,
+		todo_list_client_id VARCHAR(36),
 		todo TEXT NOT NULL,
 		priority INTEGER DEFAULT 4,
 		done BOOLEAN DEFAULT FALSE,
@@ -126,10 +130,20 @@ func (db *DB) Migrate() error {
 	-- Supports dashboard queries like "tasks in list X where done = Y"
 	CREATE INDEX IF NOT EXISTS idx_tasks_by_list_status ON tasks(todo_list_id, done)
 		WHERE deleted = FALSE;
+
+	-- Index for resolving tasks by list client_id
+	-- Supports sync operations that reference lists by UUID
+	CREATE INDEX IF NOT EXISTS idx_tasks_list_client_id ON tasks(todo_list_client_id);
 	`
 
 	_, err := db.conn.Exec(schema)
 	return err
+}
+
+// GetListIDByClientID resolves a list's clientID to its server ID
+// Used during sync to convert stable UUID references to database IDs
+func (db *DB) GetListIDByClientID(userID int, clientID string) (int, error) {
+	return db.Lists.GetIDByClientID(userID, clientID)
 }
 
 // CreateUser creates a new user with an API key (delegates to UserRepository)
@@ -163,11 +177,13 @@ func (db *DB) UpsertList(userID int, list map[string]interface{}) (int, error) {
 }
 
 // UpsertTasksBatch inserts or updates multiple tasks in a single operation
-func (db *DB) UpsertTasksBatch(userID int, tasks []map[string]interface{}) error {
+// Returns ID mappings to update client's local database with server IDs
+func (db *DB) UpsertTasksBatch(userID int, tasks []map[string]interface{}) ([]IDMapping, error) {
 	return db.Tasks.UpsertTasksBatch(userID, tasks)
 }
 
 // UpsertListsBatch inserts or updates multiple lists in a single operation
-func (db *DB) UpsertListsBatch(userID int, lists []map[string]interface{}) error {
+// Returns ID mappings to update client's local database with server IDs
+func (db *DB) UpsertListsBatch(userID int, lists []map[string]interface{}) ([]IDMapping, error) {
 	return db.Lists.UpsertListsBatch(userID, lists)
 }

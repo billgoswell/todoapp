@@ -35,6 +35,11 @@ func (s *SyncStore) GetTodoLists() ([]todoList, error) {
 	return s.local.GetTodoLists()
 }
 
+// GetTodoListByID retrieves a list by its ID
+func (s *SyncStore) GetTodoListByID(id int) (todoList, error) {
+	return s.local.GetTodoListByID(id)
+}
+
 // GetTodoListByClientID retrieves a list by its client ID
 func (s *SyncStore) GetTodoListByClientID(clientID string) (todoList, error) {
 	return s.local.GetTodoListByClientID(clientID)
@@ -135,6 +140,11 @@ func (s *SyncStore) UpdateTodoListFromServer(list todoList) error {
 	return s.local.UpdateTodoListFromServer(list)
 }
 
+// UpdateListServerID updates a list's server ID after successful sync
+func (s *SyncStore) UpdateListServerID(clientID string, serverID int) error {
+	return s.local.UpdateListServerID(clientID, serverID)
+}
+
 // GetItems retrieves all items
 func (s *SyncStore) GetItems() ([]todoItem, error) {
 	return s.local.GetItems()
@@ -190,6 +200,11 @@ func (s *SyncStore) UpdateItem(item todoItem) error {
 	}
 
 	return nil
+}
+
+// UpdateTaskServerID updates a task's server ID after successful sync
+func (s *SyncStore) UpdateTaskServerID(clientID string, serverID int) error {
+	return s.local.UpdateTaskServerID(clientID, serverID)
 }
 
 // DeleteItem deletes an item
@@ -282,18 +297,19 @@ func (s *SyncStore) PullChanges(since int64) error {
 		if err != nil {
 			// Doesn't exist locally - create it
 			newItem := todoItem{
-				clientID:      serverTask.ClientID,
-				serverID:      0,
-				done:          serverTask.Done,
-				todo:          serverTask.Todo,
-				priority:      serverTask.Priority,
+				clientID:     serverTask.ClientID,
+				serverID:     0,
+				done:         serverTask.Done,
+				todo:         serverTask.Todo,
+				priority:     serverTask.Priority,
 				dateCompleted: serverTask.DateCompleted,
-				dateAdded:     serverTask.DateAdded,
-				dueDate:       serverTask.DueDate,
-				deleted:       serverTask.Deleted,
-				deletedAt:     serverTask.DeletedAt,
-				todoListID:    serverTask.TodoListID,
-				version:       serverTask.Version,
+				dateAdded:    serverTask.DateAdded,
+				dueDate:      serverTask.DueDate,
+				deleted:      serverTask.Deleted,
+				deletedAt:    serverTask.DeletedAt,
+				todoListID:   serverTask.TodoListID,
+				listClientID: serverTask.TodoListClientID,
+				version:      serverTask.Version,
 			}
 			s.local.SaveItem(newItem)
 			continue
@@ -310,6 +326,7 @@ func (s *SyncStore) PullChanges(since int64) error {
 			localTask.deleted = serverTask.Deleted
 			localTask.deletedAt = serverTask.DeletedAt
 			localTask.todoListID = serverTask.TodoListID
+			localTask.listClientID = serverTask.TodoListClientID
 			localTask.version = serverTask.Version
 			s.local.UpdateItem(localTask)
 		}
@@ -326,7 +343,7 @@ func (s *SyncStore) PullChanges(since int64) error {
 	return nil
 }
 
-// PushChanges pushes pending local changes to the server
+// PushChanges pushes pending local changes to the server and updates local IDs
 func (s *SyncStore) PushChanges() error {
 	items, err := s.local.GetItems()
 	if err != nil {
@@ -342,9 +359,37 @@ func (s *SyncStore) PushChanges() error {
 
 	logger.LogDebug("Pushing changes to server", "items", len(items), "lists", len(lists))
 
-	if err := s.client.PushChanges(items, lists); err != nil {
+	// Push changes and get ID mappings back
+	pushResp, err := s.client.PushChanges(items, lists)
+	if err != nil {
 		logger.LogError("Failed to push changes", "error", err)
 		return err
+	}
+
+	// Process list ID mappings and update local database
+	if pushResp != nil && len(pushResp.ListIDMappings) > 0 {
+		logger.LogDebug("Processing list ID mappings", "count", len(pushResp.ListIDMappings))
+		for _, mapping := range pushResp.ListIDMappings {
+			if err := s.local.UpdateListServerID(mapping.ClientID, mapping.ServerID); err != nil {
+				logger.LogWarn("Failed to update list server ID",
+					"clientID", mapping.ClientID,
+					"serverID", mapping.ServerID,
+					"error", err)
+			}
+		}
+	}
+
+	// Process task ID mappings and update local database
+	if pushResp != nil && len(pushResp.TaskIDMappings) > 0 {
+		logger.LogDebug("Processing task ID mappings", "count", len(pushResp.TaskIDMappings))
+		for _, mapping := range pushResp.TaskIDMappings {
+			if err := s.local.UpdateTaskServerID(mapping.ClientID, mapping.ServerID); err != nil {
+				logger.LogWarn("Failed to update task server ID",
+					"clientID", mapping.ClientID,
+					"serverID", mapping.ServerID,
+					"error", err)
+			}
+		}
 	}
 
 	// Mark all changes as synced

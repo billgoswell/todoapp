@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -163,6 +164,15 @@ func (m *MockDataStore) GetItems() ([]todoItem, error) {
 
 func (m *MockDataStore) GetTodoLists() ([]todoList, error) {
 	return m.lists, nil
+}
+
+func (m *MockDataStore) GetTodoListByID(id int) (todoList, error) {
+	for _, list := range m.lists {
+		if list.id == id {
+			return list, nil
+		}
+	}
+	return todoList{}, fmt.Errorf("list not found")
 }
 
 func (m *MockDataStore) CreateItem(text string, priority int, dueDate int64, listID int) (int, error) {
@@ -346,6 +356,14 @@ func (m *MockDataStore) MarkChangeSynced(changeID int) error {
 }
 
 func (m *MockDataStore) LogChange(entityType string, entityID int, changeType string) error {
+	return nil
+}
+
+func (m *MockDataStore) UpdateListServerID(clientID string, serverID int) error {
+	return nil
+}
+
+func (m *MockDataStore) UpdateTaskServerID(clientID string, serverID int) error {
 	return nil
 }
 

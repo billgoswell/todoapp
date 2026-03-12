@@ -12,20 +12,21 @@ import (
 )
 
 type todoItem struct {
-	id            int
-	clientID      string // UUID for offline-first sync
-	serverID      int    // Server's ID (0 if not synced yet)
-	done          bool
-	todo          string
-	priority      int
-	dateCompleted int64
-	dateAdded     int64
-	dueDate       int64
-	deleted       bool
-	deletedAt     int64
-	todoListID    int
-	updatedAt     int64 // Timestamp of last update (for sync conflict resolution)
-	version       int   // For conflict detection
+	id              int
+	clientID        string // UUID for offline-first sync
+	serverID        int    // Server's ID (0 if not synced yet)
+	done            bool
+	todo            string
+	priority        int
+	dateCompleted   int64
+	dateAdded       int64
+	dueDate         int64
+	deleted         bool
+	deletedAt       int64
+	todoListID      int
+	listClientID    string // UUID reference to the list (for sync stability)
+	updatedAt       int64  // Timestamp of last update (for sync conflict resolution)
+	version         int    // For conflict detection
 }
 
 var db *sql.DB
@@ -70,6 +71,10 @@ func initDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 
+	if err := populateTaskListClientIDs(); err != nil {
+		logger.LogWarn("Failed to populate task list client IDs", "error", err)
+	}
+
 	if err := fixExistingTaskListIDs(); err != nil {
 		logger.LogWarn("Failed to fix task list IDs", "error", err)
 	}
@@ -106,7 +111,7 @@ func createTableIfNotExists() error {
 
 func getItemsFromDB() ([]todoItem, error) {
 	rows, err := storage.QueryWithError(db, "query items",
-		"SELECT id, todo, priority, done, dateAdded, dateCompleted, dueDate, deleted, deletedAt, todoList_id, COALESCE(client_id, ''), COALESCE(server_id, 0), COALESCE(version, 1) FROM tasks WHERE deleted = 0 ORDER BY id")
+		"SELECT id, todo, priority, done, dateAdded, dateCompleted, dueDate, deleted, deletedAt, todoList_id, COALESCE(client_id, ''), COALESCE(server_id, 0), COALESCE(version, 1), COALESCE(list_client_id, '') FROM tasks WHERE deleted = 0 ORDER BY id")
 	if err != nil {
 		return []todoItem{}, err
 	}
@@ -115,7 +120,7 @@ func getItemsFromDB() ([]todoItem, error) {
 	items := []todoItem{}
 	for rows.Next() {
 		var item todoItem
-		if err := rows.Scan(&item.id, &item.todo, &item.priority, &item.done, &item.dateAdded, &item.dateCompleted, &item.dueDate, &item.deleted, &item.deletedAt, &item.todoListID, &item.clientID, &item.serverID, &item.version); err != nil {
+		if err := rows.Scan(&item.id, &item.todo, &item.priority, &item.done, &item.dateAdded, &item.dateCompleted, &item.dueDate, &item.deleted, &item.deletedAt, &item.todoListID, &item.clientID, &item.serverID, &item.version, &item.listClientID); err != nil {
 			logger.LogError("Failed to scan item", "error", err)
 			return []todoItem{}, err
 		}
@@ -137,15 +142,15 @@ func getItemsFromDB() ([]todoItem, error) {
 
 func saveItemToDB(item todoItem) error {
 	return executeStmt("insert item",
-		"INSERT INTO tasks (todo, priority, done, dateAdded, dueDate, deleted, todoList_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		item.todo, item.priority, item.done, now(), item.dueDate, 0, item.todoListID,
+		"INSERT INTO tasks (todo, priority, done, dateAdded, dueDate, deleted, todoList_id, client_id, list_client_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		item.todo, item.priority, item.done, now(), item.dueDate, 0, item.todoListID, item.clientID, item.listClientID,
 	)
 }
 
 func updateItemInDB(item todoItem) error {
 	return executeStmt("update item",
-		"UPDATE tasks SET todo = ?, done = ?, priority = ?, dateCompleted = ?, dueDate = ?, todoList_id = ? WHERE id = ?",
-		item.todo, item.done, item.priority, item.dateCompleted, item.dueDate, item.todoListID, item.id,
+		"UPDATE tasks SET todo = ?, done = ?, priority = ?, dateCompleted = ?, dueDate = ?, todoList_id = ?, list_client_id = ? WHERE id = ?",
+		item.todo, item.done, item.priority, item.dateCompleted, item.dueDate, item.todoListID, item.listClientID, item.id,
 	)
 }
 
@@ -183,6 +188,30 @@ func getTodoLists() ([]todoList, error) {
 	}
 
 	return lists, nil
+}
+
+func getTodoListByID(id int) (todoList, error) {
+	rows, err := storage.QueryWithError(db, "query todoList by id",
+		"SELECT id, name, display_order, archived, created_at, updated_at, COALESCE(client_id, ''), COALESCE(server_id, 0), COALESCE(version, 1) FROM todoLists WHERE id = ? LIMIT 1", id)
+	if err != nil {
+		return todoList{}, err
+	}
+	defer rows.Close()
+
+	if rows.Next() {
+		var list todoList
+		if err := rows.Scan(&list.id, &list.name, &list.displayOrder, &list.archived, &list.createdAt, &list.updatedAt, &list.clientID, &list.serverID, &list.version); err != nil {
+			logger.LogError("Failed to scan todoList", "error", err)
+			return todoList{}, err
+		}
+		// Generate client ID if missing (for backward compatibility)
+		if list.clientID == "" {
+			list.clientID = generateClientID()
+		}
+		return list, nil
+	}
+
+	return todoList{}, fmt.Errorf("list not found with id: %d", id)
 }
 
 func createTodoList(name string) (int, error) {
@@ -371,7 +400,27 @@ func migrateSyncColumns() error {
 		}
 	}
 
+	// Check and add list_client_id column to tasks
+	if exists, err := columnExists("tasks", "list_client_id"); err != nil {
+		return err
+	} else if !exists {
+		if err := executeStmt("add list_client_id to tasks",
+			"ALTER TABLE tasks ADD COLUMN list_client_id TEXT"); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func populateTaskListClientIDs() error {
+	// Update tasks to have their list's clientID
+	return executeStmt("populate task list_client_id",
+		`UPDATE tasks
+		 SET list_client_id = (
+		     SELECT client_id FROM todoLists WHERE id = tasks.todoList_id
+		 )
+		 WHERE list_client_id IS NULL OR list_client_id = ''`)
 }
 
 func logChange(entityType string, entityID int, changeType string) error {
@@ -469,5 +518,23 @@ func updateTodoListFromServer(list todoList) error {
 	return executeStmt("update todo list from server",
 		"UPDATE todoLists SET name = ?, display_order = ?, archived = ?, updated_at = ?, version = ? WHERE client_id = ?",
 		list.name, list.displayOrder, list.archived, list.updatedAt, list.version, list.clientID,
+	)
+}
+
+// updateListServerID updates a list's server ID after successful sync to server
+// This maps the client ID to the server-assigned ID
+func updateListServerID(clientID string, serverID int) error {
+	return executeStmt("update list server_id",
+		"UPDATE todoLists SET server_id = ? WHERE client_id = ?",
+		serverID, clientID,
+	)
+}
+
+// updateTaskServerID updates a task's server ID after successful sync to server
+// This maps the client ID to the server-assigned ID
+func updateTaskServerID(clientID string, serverID int) error {
+	return executeStmt("update task server_id",
+		"UPDATE tasks SET server_id = ? WHERE client_id = ?",
+		serverID, clientID,
 	)
 }

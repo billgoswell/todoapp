@@ -11,11 +11,13 @@ import (
 type DataStore interface {
 	// Lists
 	GetTodoLists() ([]todoList, error)
+	GetTodoListByID(id int) (todoList, error)
 	GetTodoListByClientID(clientID string) (todoList, error)
 	CreateTodoList(name string) (int, error)
 	UpdateTodoListName(id int, name string) error
 	SaveTodoList(list todoList) error
 	UpdateTodoListFromServer(list todoList) error
+	UpdateListServerID(clientID string, serverID int) error
 	DeleteTodoList(id int) error
 	ArchiveTodoList(id int) error
 	UnarchiveTodoList(id int) error
@@ -26,6 +28,7 @@ type DataStore interface {
 	GetItemByClientID(clientID string) (todoItem, error)
 	SaveItem(item todoItem) error
 	UpdateItem(item todoItem) error
+	UpdateTaskServerID(clientID string, serverID int) error
 	DeleteItem(id int) error
 
 	// Sync metadata
@@ -51,6 +54,11 @@ func NewLocalStore(database *sql.DB) *LocalStore {
 // GetTodoLists retrieves all non-archived todo lists
 func (s *LocalStore) GetTodoLists() ([]todoList, error) {
 	return getTodoLists()
+}
+
+// GetTodoListByID retrieves a todo list by its ID
+func (s *LocalStore) GetTodoListByID(id int) (todoList, error) {
+	return getTodoListByID(id)
 }
 
 // CreateTodoList creates a new todo list
@@ -93,6 +101,11 @@ func (s *LocalStore) UpdateTodoListFromServer(list todoList) error {
 	return updateTodoListFromServer(list)
 }
 
+// UpdateListServerID updates a list's server ID after successful sync
+func (s *LocalStore) UpdateListServerID(clientID string, serverID int) error {
+	return updateListServerID(clientID, serverID)
+}
+
 // GetItems retrieves all non-deleted items
 func (s *LocalStore) GetItems() ([]todoItem, error) {
 	return getItemsFromDB()
@@ -117,7 +130,7 @@ func (s *LocalStore) GetItemByID(id int) (todoItem, error) {
 // GetItemByClientID retrieves an item by its client ID
 func (s *LocalStore) GetItemByClientID(clientID string) (todoItem, error) {
 	rows, err := s.db.Query(
-		"SELECT id, todo, priority, done, dateAdded, dateCompleted, dueDate, deleted, deletedAt, todoList_id, COALESCE(client_id, ''), COALESCE(server_id, 0), COALESCE(version, 1) FROM tasks WHERE client_id = ? LIMIT 1",
+		"SELECT id, todo, priority, done, dateAdded, dateCompleted, dueDate, deleted, deletedAt, todoList_id, COALESCE(client_id, ''), COALESCE(server_id, 0), COALESCE(version, 1), COALESCE(list_client_id, '') FROM tasks WHERE client_id = ? LIMIT 1",
 		clientID,
 	)
 	if err != nil {
@@ -128,7 +141,7 @@ func (s *LocalStore) GetItemByClientID(clientID string) (todoItem, error) {
 
 	if rows.Next() {
 		var item todoItem
-		if err := rows.Scan(&item.id, &item.todo, &item.priority, &item.done, &item.dateAdded, &item.dateCompleted, &item.dueDate, &item.deleted, &item.deletedAt, &item.todoListID, &item.clientID, &item.serverID, &item.version); err != nil {
+		if err := rows.Scan(&item.id, &item.todo, &item.priority, &item.done, &item.dateAdded, &item.dateCompleted, &item.dueDate, &item.deleted, &item.deletedAt, &item.todoListID, &item.clientID, &item.serverID, &item.version, &item.listClientID); err != nil {
 			logger.LogError("scan item by client_id", err)
 			return todoItem{}, err
 		}
@@ -150,6 +163,11 @@ func (s *LocalStore) SaveItem(item todoItem) error {
 // UpdateItem updates an existing item
 func (s *LocalStore) UpdateItem(item todoItem) error {
 	return updateItemInDB(item)
+}
+
+// UpdateTaskServerID updates a task's server ID after successful sync
+func (s *LocalStore) UpdateTaskServerID(clientID string, serverID int) error {
+	return updateTaskServerID(clientID, serverID)
 }
 
 // DeleteItem marks an item as deleted

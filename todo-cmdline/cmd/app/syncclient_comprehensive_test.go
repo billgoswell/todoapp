@@ -242,7 +242,7 @@ func TestSyncClient_PushChanges_Success(t *testing.T) {
 		},
 	}
 
-	err := client.PushChanges(items, lists)
+	_, err := client.PushChanges(items, lists)
 
 	if err != nil {
 		t.Fatalf("PushChanges failed: %v", err)
@@ -263,7 +263,7 @@ func TestSyncClient_PushChanges_EmptyData(t *testing.T) {
 	}
 
 	// Push empty lists
-	err := client.PushChanges([]todoItem{}, []todoList{})
+	_, err := client.PushChanges([]todoItem{}, []todoList{})
 
 	if err != nil {
 		t.Fatalf("PushChanges with empty data failed: %v", err)
@@ -497,7 +497,7 @@ func TestSyncClient_RequestBuilding(t *testing.T) {
 		},
 	}
 
-	err := client.PushChanges(items, []todoList{})
+	_, err := client.PushChanges(items, []todoList{})
 	if err != nil {
 		t.Fatalf("PushChanges failed: %v", err)
 	}

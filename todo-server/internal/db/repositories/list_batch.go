@@ -6,11 +6,18 @@ import (
 	"time"
 )
 
+// IDMapping represents a client-to-server ID mapping
+type IDMapping struct {
+	ClientID string
+	ServerID int
+}
+
 // UpsertListsBatch inserts or updates multiple lists in a single operation
 // Uses PostgreSQL's batch insert/update for better performance
-func (r *ListRepository) UpsertListsBatch(userID int, lists []map[string]any) error {
+// Returns ID mappings to update client's local database with server IDs
+func (r *ListRepository) UpsertListsBatch(userID int, lists []map[string]any) ([]IDMapping, error) {
 	if len(lists) == 0 {
-		return nil
+		return []IDMapping{}, nil
 	}
 
 	// Build the VALUES clause with all lists
@@ -52,13 +59,36 @@ func (r *ListRepository) UpsertListsBatch(userID int, lists []map[string]any) er
 			user_id, client_id, name, display_order, archived,
 			updated_at, version
 		) VALUES %s
-		ON CONFLICT (user_id, name) DO UPDATE SET
+		ON CONFLICT (user_id, client_id) DO UPDATE SET
 			display_order = CASE WHEN EXCLUDED.updated_at > todo_lists.updated_at THEN EXCLUDED.display_order ELSE todo_lists.display_order END,
 			archived = CASE WHEN EXCLUDED.updated_at > todo_lists.updated_at THEN EXCLUDED.archived ELSE todo_lists.archived END,
 			updated_at = CASE WHEN EXCLUDED.updated_at > todo_lists.updated_at THEN EXCLUDED.updated_at ELSE todo_lists.updated_at END,
 			version = CASE WHEN EXCLUDED.updated_at > todo_lists.updated_at THEN EXCLUDED.version ELSE todo_lists.version END
+		RETURNING id, client_id
 	`, strings.Join(valueStrings, ", "))
 
-	_, err := r.conn.Exec(query, args...)
-	return err
+	rows, err := r.conn.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var mappings []IDMapping
+	for rows.Next() {
+		var id int
+		var clientID string
+		if err := rows.Scan(&id, &clientID); err != nil {
+			return nil, err
+		}
+		mappings = append(mappings, IDMapping{
+			ClientID: clientID,
+			ServerID: id,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return mappings, nil
 }

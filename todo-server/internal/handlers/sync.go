@@ -57,6 +57,12 @@ func Push(database *db.DB) gin.HandlerFunc {
 			return
 		}
 
+		var listIDMappings []models.IDMapping
+		var taskIDMappings []models.IDMapping
+
+		// Build mapping from list clientID to server ID for task foreign key resolution
+		listClientIDToServerID := make(map[string]int)
+
 		// Upsert all lists first (before tasks due to foreign key constraint)
 		// Upsert all lists in a single batch operation for better performance
 		if len(req.Lists) > 0 {
@@ -67,11 +73,22 @@ func Push(database *db.DB) gin.HandlerFunc {
 				listMaps[i] = listMap
 			}
 
-			// Upsert all lists in a single batch operation
-			if err := database.UpsertListsBatch(userID, listMaps); err != nil {
+			// Upsert all lists in a single batch operation and capture ID mappings
+			mappings, err := database.UpsertListsBatch(userID, listMaps)
+			if err != nil {
 				log.Printf("ERROR: Failed to sync lists: %v", err)
 				response.InternalError(c, "failed to sync lists", err.Error())
 				return
+			}
+			// Convert db.IDMapping to models.IDMapping with entity type
+			for _, mapping := range mappings {
+				listIDMappings = append(listIDMappings, models.IDMapping{
+					ClientID:   mapping.ClientID,
+					ServerID:   mapping.ServerID,
+					EntityType: "list",
+				})
+				// Build clientID -> serverID mapping for task FK resolution
+				listClientIDToServerID[mapping.ClientID] = mapping.ServerID
 			}
 		}
 
@@ -81,18 +98,50 @@ func Push(database *db.DB) gin.HandlerFunc {
 			for i, task := range req.Tasks {
 				taskMap := convertTaskToMap(task)
 				taskMap["user_id"] = userID
+
+				// NEW: Resolve TodoListClientID to server ID for database FK
+				if task.TodoListClientID != "" {
+					if serverID, ok := listClientIDToServerID[task.TodoListClientID]; ok {
+						// We just synced this list, use the server ID
+						taskMap["todo_list_id"] = serverID
+					} else {
+						// List wasn't in this push, try to look it up in the database
+						serverID, err := database.GetListIDByClientID(userID, task.TodoListClientID)
+						if err != nil {
+							log.Printf("WARN: Cannot resolve list for task %s: %v", task.ClientID, err)
+							continue // Skip this task to avoid FK violation
+						}
+						taskMap["todo_list_id"] = serverID
+					}
+				}
+				// else: use existing TodoListID (backward compatibility)
+
 				taskMaps[i] = taskMap
 			}
 
-			// Upsert all tasks in a single batch operation
-			if err := database.UpsertTasksBatch(userID, taskMaps); err != nil {
+			// Upsert all tasks in a single batch operation and capture ID mappings
+			mappings, err := database.UpsertTasksBatch(userID, taskMaps)
+			if err != nil {
 				log.Printf("ERROR: Failed to sync tasks: %v", err)
 				response.InternalError(c, "failed to sync tasks", err.Error())
 				return
 			}
+			// Convert db.IDMapping to models.IDMapping with entity type
+			for _, mapping := range mappings {
+				taskIDMappings = append(taskIDMappings, models.IDMapping{
+					ClientID:   mapping.ClientID,
+					ServerID:   mapping.ServerID,
+					EntityType: "task",
+				})
+			}
 		}
 
-		response.OK(c, map[string]string{"status": "ok"})
+		// Return push response with ID mappings
+		response.OK(c, models.PushResponse{
+			Status:           "ok",
+			ListIDMappings:   listIDMappings,
+			TaskIDMappings:   taskIDMappings,
+		})
 	}
 }
 
@@ -160,18 +209,19 @@ func convertListMaps(lists []map[string]any) []models.TodoList {
 
 func convertTaskToMap(task models.Task) map[string]any {
 	return map[string]any{
-		"client_id":       task.ClientID,
-		"todo_list_id":    task.TodoListID,
-		"todo":            task.Todo,
-		"priority":        task.Priority,
-		"done":            task.Done,
-		"date_added":      task.DateAdded,
-		"date_completed":  task.DateCompleted,
-		"due_date":        task.DueDate,
-		"deleted":         task.Deleted,
-		"deleted_at":      task.DeletedAt,
-		"updated_at":      task.UpdatedAt,
-		"version":         task.Version,
+		"client_id":            task.ClientID,
+		"todo_list_id":         task.TodoListID,
+		"todo_list_client_id":  task.TodoListClientID,
+		"todo":                 task.Todo,
+		"priority":             task.Priority,
+		"done":                 task.Done,
+		"date_added":           task.DateAdded,
+		"date_completed":       task.DateCompleted,
+		"due_date":             task.DueDate,
+		"deleted":              task.Deleted,
+		"deleted_at":           task.DeletedAt,
+		"updated_at":           task.UpdatedAt,
+		"version":              task.Version,
 	}
 }
 

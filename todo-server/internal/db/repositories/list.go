@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -62,6 +63,22 @@ func (r *ListRepository) GetListsSince(userID int, since int64) ([]map[string]in
 	}
 
 	return lists, rows.Err()
+}
+
+// GetIDByClientID returns the server ID for a list given its clientID
+// Used to resolve stable UUID references to database IDs
+func (r *ListRepository) GetIDByClientID(userID int, clientID string) (int, error) {
+	query := `
+		SELECT id FROM todo_lists
+		WHERE user_id = $1 AND client_id = $2
+	`
+
+	var id int
+	err := r.conn.QueryRow(query, userID, clientID).Scan(&id)
+	if err == sql.ErrNoRows {
+		return 0, fmt.Errorf("list not found with client_id: %s", clientID)
+	}
+	return id, err
 }
 
 // UpsertList inserts or updates a list using last-write-wins conflict resolution

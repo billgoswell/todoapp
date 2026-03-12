@@ -38,18 +38,19 @@ type SyncClient struct {
 
 // TaskPayload represents a task for sync
 type TaskPayload struct {
-	ClientID      string `json:"client_id"`
-	Todo          string `json:"todo"`
-	Priority      int    `json:"priority"`
-	Done          bool   `json:"done"`
-	DateAdded     int64  `json:"date_added"`
-	DateCompleted int64  `json:"date_completed"`
-	DueDate       int64  `json:"due_date"`
-	Deleted       bool   `json:"deleted"`
-	DeletedAt     int64  `json:"deleted_at"`
-	TodoListID    int    `json:"todo_list_id"`
-	UpdatedAt     int64  `json:"updated_at"`
-	Version       int    `json:"version"`
+	ClientID         string `json:"client_id"`
+	Todo             string `json:"todo"`
+	Priority         int    `json:"priority"`
+	Done             bool   `json:"done"`
+	DateAdded        int64  `json:"date_added"`
+	DateCompleted    int64  `json:"date_completed"`
+	DueDate          int64  `json:"due_date"`
+	Deleted          bool   `json:"deleted"`
+	DeletedAt        int64  `json:"deleted_at"`
+	TodoListID       int    `json:"todo_list_id"`
+	TodoListClientID string `json:"todo_list_client_id"`
+	UpdatedAt        int64  `json:"updated_at"`
+	Version          int    `json:"version"`
 }
 
 // ListPayload represents a todo list for sync
@@ -77,6 +78,20 @@ type PullResponse struct {
 type PushRequest struct {
 	Tasks []TaskPayload `json:"tasks"`
 	Lists []ListPayload `json:"lists"`
+}
+
+// IDMapping represents a client-to-server ID mapping returned from push
+type IDMapping struct {
+	ClientID   string `json:"client_id"`
+	ServerID   int    `json:"server_id"`
+	EntityType string `json:"entity_type"`
+}
+
+// PushResponse contains the result of a push operation
+type PushResponse struct {
+	Status           string      `json:"status"`
+	ListIDMappings   []IDMapping `json:"list_id_mappings"`
+	TaskIDMappings   []IDMapping `json:"task_id_mappings"`
 }
 
 // HealthResponse is the response from the health endpoint
@@ -198,31 +213,32 @@ func (c *SyncClient) PullChanges(since int64) (*PullResponse, error) {
 	return &pullResp, nil
 }
 
-// PushChanges sends local changes to the server
-func (c *SyncClient) PushChanges(items []todoItem, lists []todoList) error {
+// PushChanges sends local changes to the server and returns ID mappings
+func (c *SyncClient) PushChanges(items []todoItem, lists []todoList) (*PushResponse, error) {
 	logger.LogDebug("Starting push", "server", c.baseURL, "items", len(items), "lists", len(lists))
 
 	if !c.IsOnline() {
 		logger.LogWarn("Push failed: server offline", "server", c.baseURL)
-		return fmt.Errorf("not connected to sync server")
+		return nil, fmt.Errorf("not connected to sync server")
 	}
 
 	// Convert items to payloads
 	taskPayloads := make([]TaskPayload, len(items))
 	for i, item := range items {
 		taskPayloads[i] = TaskPayload{
-			ClientID:      item.clientID,
-			Todo:          item.todo,
-			Priority:      item.priority,
-			Done:          item.done,
-			DateAdded:     item.dateAdded,
-			DateCompleted: item.dateCompleted,
-			DueDate:       item.dueDate,
-			Deleted:       item.deleted,
-			DeletedAt:     item.deletedAt,
-			TodoListID:    item.todoListID,
-			UpdatedAt:     item.updatedAt,
-			Version:       item.version,
+			ClientID:         item.clientID,
+			Todo:             item.todo,
+			Priority:         item.priority,
+			Done:             item.done,
+			DateAdded:        item.dateAdded,
+			DateCompleted:    item.dateCompleted,
+			DueDate:          item.dueDate,
+			Deleted:          item.deleted,
+			DeletedAt:        item.deletedAt,
+			TodoListID:       item.todoListID,
+			TodoListClientID: item.listClientID,
+			UpdatedAt:        item.updatedAt,
+			Version:          item.version,
 		}
 	}
 
@@ -230,12 +246,12 @@ func (c *SyncClient) PushChanges(items []todoItem, lists []todoList) error {
 	listPayloads := make([]ListPayload, len(lists))
 	for i, list := range lists {
 		listPayloads[i] = ListPayload{
-			ClientID:    list.clientID,
-			Name:        list.name,
+			ClientID:     list.clientID,
+			Name:         list.name,
 			DisplayOrder: list.displayOrder,
-			Archived:    list.archived,
-			UpdatedAt:   list.updatedAt,
-			Version:     list.version,
+			Archived:     list.archived,
+			UpdatedAt:    list.updatedAt,
+			Version:      list.version,
 		}
 	}
 
@@ -247,13 +263,13 @@ func (c *SyncClient) PushChanges(items []todoItem, lists []todoList) error {
 	body, err := json.Marshal(pushReq)
 	if err != nil {
 		logger.LogError("Failed to marshal push request", "error", err)
-		return err
+		return nil, err
 	}
 
 	req, err := http.NewRequest("POST", c.baseURL+"/sync/push", bytes.NewReader(body))
 	if err != nil {
 		logger.LogError("Failed to create push request", "error", err)
-		return err
+		return nil, err
 	}
 
 	c.addAuthHeaders(req)
@@ -262,7 +278,7 @@ func (c *SyncClient) PushChanges(items []todoItem, lists []todoList) error {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		logger.LogError("Push request failed", "server", c.baseURL, "error", err)
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -272,11 +288,22 @@ func (c *SyncClient) PushChanges(items []todoItem, lists []todoList) error {
 			"server", c.baseURL,
 			"status", resp.StatusCode,
 			"response", string(bodyBytes))
-		return fmt.Errorf("push changes failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("push changes failed with status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	logger.LogDebug("Push completed successfully", "items", len(items), "lists", len(lists))
-	return nil
+	// Decode the push response
+	var pushResp PushResponse
+	if err := json.NewDecoder(resp.Body).Decode(&pushResp); err != nil {
+		logger.LogError("Failed to decode push response", "error", err)
+		return nil, err
+	}
+
+	logger.LogDebug("Push completed successfully",
+		"items", len(items),
+		"lists", len(lists),
+		"list_mappings", len(pushResp.ListIDMappings),
+		"task_mappings", len(pushResp.TaskIDMappings))
+	return &pushResp, nil
 }
 
 // addAuthHeaders adds authentication headers to requests
