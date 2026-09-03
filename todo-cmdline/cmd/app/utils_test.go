@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -64,52 +65,51 @@ func TestParseDueDate_DaysFromNow(t *testing.T) {
 	}
 }
 
-func TestParseDueDate_FullDateFormat(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"12/25/2025", "2025-12-25"},
-		{"1/1/2026", "2026-01-01"},
-		{"6/15/2025", "2025-06-15"},
+// dueDateTestDates returns dates relative to now so the tests never expire:
+// parseDueDate rejects dates more than 1 year in the past.
+func dueDateTestDates() []time.Time {
+	now := time.Now()
+	return []time.Time{
+		now.AddDate(0, 0, 30),
+		now.AddDate(0, 0, 180),
+		now.AddDate(0, 0, -30), // recent past is allowed (up to 1 year back)
 	}
+}
 
-	for _, tt := range tests {
-		result := parseDueDate(tt.input)
+func TestParseDueDate_FullDateFormat(t *testing.T) {
+	for _, d := range dueDateTestDates() {
+		input := fmt.Sprintf("%d/%d/%d", int(d.Month()), d.Day(), d.Year())
+		expected := d.Format("2006-01-02")
+
+		result := parseDueDate(input)
 		if result == 0 {
-			t.Errorf("expected non-zero result for %q", tt.input)
+			t.Errorf("expected non-zero result for %q", input)
 			continue
 		}
 
 		resultTime := time.Unix(result, 0)
 		resultDate := resultTime.Format("2006-01-02")
-		if resultDate != tt.expected {
-			t.Errorf("for input %q: expected %s, got %s", tt.input, tt.expected, resultDate)
+		if resultDate != expected {
+			t.Errorf("for input %q: expected %s, got %s", input, expected, resultDate)
 		}
 	}
 }
 
 func TestParseDueDate_ShortYearFormat(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"12/25/25", "2025-12-25"},
-		{"1/1/26", "2026-01-01"},
-		{"6/15/30", "2030-06-15"},
-	}
+	for _, d := range dueDateTestDates() {
+		input := fmt.Sprintf("%d/%d/%02d", int(d.Month()), d.Day(), d.Year()%100)
+		expected := d.Format("2006-01-02")
 
-	for _, tt := range tests {
-		result := parseDueDate(tt.input)
+		result := parseDueDate(input)
 		if result == 0 {
-			t.Errorf("expected non-zero result for %q", tt.input)
+			t.Errorf("expected non-zero result for %q", input)
 			continue
 		}
 
 		resultTime := time.Unix(result, 0)
 		resultDate := resultTime.Format("2006-01-02")
-		if resultDate != tt.expected {
-			t.Errorf("for input %q: expected %s, got %s", tt.input, tt.expected, resultDate)
+		if resultDate != expected {
+			t.Errorf("for input %q: expected %s, got %s", input, expected, resultDate)
 		}
 	}
 }
@@ -132,7 +132,13 @@ func TestParseDueDate_MonthDayOnly(t *testing.T) {
 }
 
 func TestParseDueDate_TimeSetToEndOfDay(t *testing.T) {
-	inputs := []string{"1", "12/25/2025", "12/25/25", "6/15"}
+	future := time.Now().AddDate(0, 0, 60)
+	inputs := []string{
+		"1",
+		fmt.Sprintf("%d/%d/%d", int(future.Month()), future.Day(), future.Year()),
+		fmt.Sprintf("%d/%d/%02d", int(future.Month()), future.Day(), future.Year()%100),
+		"6/15",
+	}
 
 	for _, input := range inputs {
 		result := parseDueDate(input)

@@ -14,11 +14,11 @@ All components share canonical type definitions from `shared-types/` and are tes
 
 ## Project Status
 
-- ✅ **156+ tests passing** across all components
+- ✅ **335+ tests passing** across all components (126 CLI, 128 server, 66 mobile, 15 integration)
 - ✅ **CLI**: Fully functional with task management, list organization, and local storage
 - ✅ **Server**: REST API with PostgreSQL, optimized batch operations, sync functionality
 - ✅ **Mobile**: React Native app with complete feature parity
-- ✅ **Integration Tests**: Cross-component test suite validating interactions
+- ✅ **Integration Tests**: Cross-component test suite validating interactions (requires a running server + database)
 
 ## Repository Structure
 
@@ -51,9 +51,6 @@ todoapp/
 │   ├── STATUS.md         # Current project status
 │   ├── REPO_STRUCTURE.md # Detailed repository structure
 │   └── ...
-│
-├── .github/              # GitHub configuration
-│   └── workflows/        # CI/CD workflows (test, build, code-quality)
 │
 └── .gitignore            # Standard exclusions
 ```
@@ -111,22 +108,14 @@ See `integration-tests/README.md` for integration test documentation.
 
 This monorepo includes comprehensive test coverage:
 
-- **CLI Tests**: Handler tests, storage tests, sync tests (~56 tests)
-- **Server Tests**: API endpoint tests, database tests (~34 tests)
-- **Mobile Tests**: Component tests, integration tests (~66 tests)
-- **Integration Tests**: Cross-component synchronization tests
+- **CLI Tests**: Handler tests, storage tests, sync tests (126 tests)
+- **Server Tests**: API endpoint tests, repository tests, sync/conversion tests (128 tests)
+- **Mobile Tests**: Component, database, sync, and state tests (66 tests)
+- **Integration Tests**: Cross-component synchronization tests (15 tests)
 
-Run all tests locally by running the test command in each component directory, or see `.github/workflows/test.yml` for the CI/CD testing pipeline.
+Run all tests locally by running the test command in each component directory.
 
-## CI/CD
-
-GitHub Actions workflows automatically run on every push and pull request:
-
-- **test.yml** - Runs all component tests with coverage reports
-- **build.yml** - Builds CLI, Server, and validates Mobile build
-- **code-quality.yml** - Linting, security scanning, dependency checks
-
-Workflow files are in `.github/workflows/`.
+> **Note**: `todo-server/internal/db` uses [testcontainers](https://testcontainers.com/) and needs a running Docker daemon; `integration-tests/` needs a running server and database (`localhost:8080`). Both are skipped/fail without those dependencies available.
 
 ## Documentation
 
@@ -145,8 +134,7 @@ Comprehensive documentation is available:
 2. **Make your changes** in the relevant component directory
 3. **Run tests** to ensure nothing breaks
 4. **Commit and push** your changes
-5. **GitHub Actions** automatically runs tests, builds, and code quality checks
-6. **Merge to main** once CI/CD passes (for a personal project, this is automatic)
+5. **Merge to main** once you're satisfied with the changes
 
 ## Key Features
 
@@ -203,13 +191,13 @@ This project is provided as-is for personal use.
 
 | Component | Language | Framework | Tests | Status |
 |-----------|----------|-----------|-------|--------|
-| CLI | Go | Bubble Tea | 56+ | ✅ Complete |
-| Server | Go | Gin + PostgreSQL | 34+ | ✅ Complete |
-| Mobile | TypeScript/React | React Native | 66+ | ✅ Complete |
-| Integration | Go/TypeScript | Testing frameworks | Cross-component | ✅ Complete |
+| CLI | Go | Bubble Tea | 126 | ✅ Complete |
+| Server | Go | Gin + PostgreSQL | 128 | ✅ Complete |
+| Mobile | TypeScript/React | React Native | 66 | ✅ Complete |
+| Integration | Go | Testify | 15 | ✅ Complete |
 
 ---
 
-**Last Updated**: 2026-01-28
+**Last Updated**: 2026-09-03
 **Monorepo Established**: 2026-01-22
 **Project Status**: All phases complete, ready for active development

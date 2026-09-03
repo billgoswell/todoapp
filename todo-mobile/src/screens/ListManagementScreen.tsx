@@ -68,7 +68,7 @@ export const ListManagementScreen: React.FC<ListManagementScreenProps> = ({
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Rename',
-          onPress: async (newName) => {
+          onPress: async (newName?: string) => {
             if (newName && newName.trim() && newName !== currentName) {
               try {
                 await updateList(listId, { name: newName.trim() });

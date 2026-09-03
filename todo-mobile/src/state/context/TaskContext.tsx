@@ -158,7 +158,7 @@ export const TaskContextProvider: React.FC<TaskContextProviderProps> = ({ childr
       setTasksByListId(prev => {
         const updated = { ...prev };
         Object.keys(updated).forEach(listId => {
-          updated[parseInt(listId)] = updated[parseInt(listId)].map(t =>
+          updated[parseInt(listId, 10)] = updated[parseInt(listId, 10)].map(t =>
             t.id === id ? updatedTask : t
           );
         });
@@ -192,7 +192,7 @@ export const TaskContextProvider: React.FC<TaskContextProviderProps> = ({ childr
       setTasksByListId(prev => {
         const updated = { ...prev };
         Object.keys(updated).forEach(listId => {
-          updated[parseInt(listId)] = updated[parseInt(listId)].filter(
+          updated[parseInt(listId, 10)] = updated[parseInt(listId, 10)].filter(
             t => t.id !== id
           );
         });
@@ -212,7 +212,7 @@ export const TaskContextProvider: React.FC<TaskContextProviderProps> = ({ childr
   const completeTask = useCallback(
     async (id: number) => {
       const now = Math.floor(Date.now() / 1000);
-      return updateTask(id, {
+      await updateTask(id, {
         done: true,
         date_completed: now,
       });

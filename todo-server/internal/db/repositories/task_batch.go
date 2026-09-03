@@ -71,6 +71,7 @@ func (r *TaskRepository) UpsertTasksBatch(userID int, tasks []map[string]any) ([
 			updated_at, version
 		) VALUES %s
 		ON CONFLICT (user_id, client_id) DO UPDATE SET
+			todo_list_id = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.todo_list_id ELSE tasks.todo_list_id END,
 			todo_list_client_id = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.todo_list_client_id ELSE tasks.todo_list_client_id END,
 			todo = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.todo ELSE tasks.todo END,
 			priority = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.priority ELSE tasks.priority END,
@@ -111,6 +112,7 @@ func (r *TaskRepository) UpsertTasksBatch(userID int, tasks []map[string]any) ([
 }
 
 // convertTimestamp is a helper function to convert various timestamp formats to time.Time
+// A zero or nil value means "not set" and yields the zero time.
 func convertTimestamp(val any) time.Time {
 	switch v := val.(type) {
 	case float64:
@@ -123,8 +125,18 @@ func convertTimestamp(val any) time.Time {
 			return time.Time{}
 		}
 		return time.Unix(v, 0)
-	case nil:
-		return time.Time{}
+	case *int64:
+		if v == nil || *v == 0 {
+			return time.Time{}
+		}
+		return time.Unix(*v, 0)
+	case time.Time:
+		return v
+	case *time.Time:
+		if v == nil {
+			return time.Time{}
+		}
+		return *v
 	default:
 		return time.Time{}
 	}

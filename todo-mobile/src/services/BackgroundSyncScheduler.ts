@@ -24,7 +24,7 @@ export interface SyncScheduleStatus {
 }
 
 class BackgroundSyncSchedulerService {
-  private intervalId: NodeJS.Timer | null = null;
+  private intervalId: ReturnType<typeof setInterval> | null = null;
   private config: SyncScheduleConfig;
   private status: SyncScheduleStatus;
   private lastSyncTime: number = 0;

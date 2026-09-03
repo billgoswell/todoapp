@@ -211,19 +211,9 @@ test('description', () => {
 });
 ```
 
-## CI/CD Integration
+## Running Before You Commit
 
-### GitHub Actions
-
-```yaml
-- name: Run integration tests
-  run: |
-    cd integration-tests
-    go test ./cli-server -v
-    npm test
-```
-
-### Local Pre-commit
+This project has no CI pipeline — run these locally before merging:
 
 ```bash
 #!/bin/bash

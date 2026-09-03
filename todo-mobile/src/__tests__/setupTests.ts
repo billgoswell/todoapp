@@ -76,7 +76,7 @@ afterAll(() => {
 });
 
 // Global test utilities
-global.testUtils = {
+(global as any).testUtils = {
 	/**
 	 * Create a mock API response
 	 */

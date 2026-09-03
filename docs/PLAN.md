@@ -443,15 +443,12 @@ todo-mobile/src/
 7. **Run tests in isolation** - no shared state between tests
 8. **Measure and monitor** code coverage trends
 
-### CI/CD Integration
+### Running the Full Suite
 
-Add to GitHub Actions (or your CI tool):
-```yaml
-- Run: go test -v -cover ./...  # Server & CLI
-- Run: npm test -- --coverage   # Mobile
-- Report: Upload coverage to Codecov
-- Fail: If coverage drops below target
-- Fail: If any test fails
+This project has no CI pipeline — run tests locally before merging:
+```bash
+go test -v -cover ./...  # Server & CLI (run in each module directory)
+npm test -- --coverage   # Mobile
 ```
 
 ## Success Criteria
@@ -507,7 +504,6 @@ Add to GitHub Actions (or your CI tool):
 4. **Week 6:**
    - Coverage analysis and gap filling
    - Documentation updates
-   - CI/CD integration
 
 ## References
 

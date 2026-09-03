@@ -83,6 +83,7 @@ func (r *TaskRepository) UpsertTask(userID int, task map[string]interface{}) (in
 			updated_at, version
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (user_id, client_id) DO UPDATE SET
+			todo_list_id = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.todo_list_id ELSE tasks.todo_list_id END,
 			todo = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.todo ELSE tasks.todo END,
 			priority = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.priority ELSE tasks.priority END,
 			done = CASE WHEN EXCLUDED.updated_at > tasks.updated_at THEN EXCLUDED.done ELSE tasks.done END,
@@ -95,27 +96,7 @@ func (r *TaskRepository) UpsertTask(userID int, task map[string]interface{}) (in
 		RETURNING id
 	`
 
-	// Helper function to convert timestamp values
-	convertTimestamp := func(val interface{}) time.Time {
-		switch v := val.(type) {
-		case float64:
-			if v == 0 {
-				return time.Time{}
-			}
-			return time.Unix(int64(v), 0)
-		case int64:
-			if v == 0 {
-				return time.Time{}
-			}
-			return time.Unix(v, 0)
-		case nil:
-			return time.Time{}
-		default:
-			return time.Time{}
-		}
-	}
-
-	// Convert all timestamps to time.Time
+	// Convert all timestamps to time.Time (shared helper in task_batch.go)
 	dateAdded := convertTimestamp(task["date_added"])
 	dateCompleted := convertTimestamp(task["date_completed"])
 	dueDate := convertTimestamp(task["due_date"])

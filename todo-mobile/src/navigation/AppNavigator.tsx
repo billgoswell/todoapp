@@ -54,7 +54,7 @@ export const AppNavigator: React.FC<AppNavigatorProps> = ({ isSignedIn }) => {
         name="Home"
         component={HomeScreen}
         options={{
-          animationTypeForReplace: isSignedIn ? 'pop' : 'fade',
+          animationTypeForReplace: isSignedIn ? 'pop' : 'push',
           cardStyleInterpolator: ({ current }) => ({
             cardStyle: {
               opacity: current.progress,

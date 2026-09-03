@@ -119,7 +119,12 @@ export class DatabaseManager {
       throw new Error('Database not initialized');
     }
 
-    return this.db.withTransactionSync(callback);
+    // withTransactionSync returns void, so capture the callback's result
+    let result!: T;
+    this.db.withTransactionSync(() => {
+      result = callback();
+    });
+    return result;
   }
 
   /**

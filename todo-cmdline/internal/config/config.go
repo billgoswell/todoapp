@@ -127,7 +127,8 @@ func createDefaultConfigFile(configPath string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configPath, data, 0644)
+	// 0600: config contains the sync API key, keep it private to the user
+	return os.WriteFile(configPath, data, 0600)
 }
 
 func loadConfigFromFile(configPath string) (Config, error) {

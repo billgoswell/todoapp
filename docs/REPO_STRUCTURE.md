@@ -6,12 +6,6 @@
 
 ```
 /
-├── .github/
-│   └── workflows/              # CI/CD automation
-│       ├── test.yml            # Run all tests
-│       ├── build.yml           # Build all components
-│       └── code-quality.yml    # Lint, security checks
-│
 ├── todo-cmdline/               # CLI application (Go)
 ├── todo-server/                # REST API (Go)
 ├── todo-mobile/                # Mobile app (React Native)
@@ -51,7 +45,6 @@ docs/claude-ai-guides/         # (in .gitignore)
 
 ### ✅ In Git
 - **Source Code** - What you need to build/run the app
-- **CI/CD Workflows** - How automated testing works
 - **Core Docs** - CLAUDE.md, PLAN.md, TESTING.md
 - **Configuration** - How to configure the application
 
@@ -75,8 +68,7 @@ cd commandlinetodo
 
 They get:
 - ✅ All source code (3 components)
-- ✅ Tests (156+ tests)
-- ✅ CI/CD workflows
+- ✅ Tests (335+ tests)
 - ✅ Core documentation (CLAUDE.md, TESTING.md)
 - ✅ Configuration guides
 
@@ -103,11 +95,6 @@ Available in **docs/claude-ai-guides/** (not in Git):
 - Phase reports - What was done and why
 - Implementation guides - How it was set up
 
-### For Setting Up CI/CD
-**If you need to set up GitHub Actions:**
-- Reference: docs/claude-ai-guides/GIT_MONOREPO_SETUP_CHECKLIST.md
-- Quick start: docs/claude-ai-guides/GITHUB_ACTIONS_QUICKSTART.md
-
 ---
 
 ## Repository Size Impact
@@ -118,7 +105,7 @@ Available in **docs/claude-ai-guides/** (not in Git):
 - Repository noise: High (many analysis files)
 
 ### After Organization
-- Git repo size: ~Y MB (just source + workflows)
+- Git repo size: ~Y MB (just source)
 - Clone time: Faster
 - Repository noise: Low (focused on code)
 
@@ -212,7 +199,6 @@ No need to:
 |------|----------|--------|---------|
 | Source Code | Components | ✅ | Application code |
 | Tests | Each component | ✅ | Quality assurance |
-| Workflows | `.github/workflows/` | ✅ | CI/CD automation |
 | Core Docs | Root | ✅ | Essential reference |
 | Analysis | `docs/claude-ai-guides/` | ❌ | Historical reference |
 | Config | Each component | ✅ | Configuration |

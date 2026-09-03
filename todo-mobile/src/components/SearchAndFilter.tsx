@@ -82,10 +82,10 @@ export const SearchAndFilter: React.FC<SearchAndFilterProps> = ({
   // Priority filter buttons
   const priorityFilters: { label: string; value: FilterPriority; color: string }[] = [
     { label: 'All', value: 'all', color: colors.gray500 },
-    { label: 'High', value: TASK_PRIORITIES.HIGH as FilterPriority, color: PRIORITY_COLORS.HIGH },
-    { label: 'Medium', value: TASK_PRIORITIES.MEDIUM as FilterPriority, color: PRIORITY_COLORS.MEDIUM },
-    { label: 'Low', value: TASK_PRIORITIES.LOW as FilterPriority, color: PRIORITY_COLORS.LOW },
-    { label: 'None', value: TASK_PRIORITIES.NONE as FilterPriority, color: PRIORITY_COLORS.NONE },
+    { label: 'High', value: TASK_PRIORITIES.HIGH as FilterPriority, color: PRIORITY_COLORS[TASK_PRIORITIES.HIGH] },
+    { label: 'Medium', value: TASK_PRIORITIES.MEDIUM as FilterPriority, color: PRIORITY_COLORS[TASK_PRIORITIES.MEDIUM] },
+    { label: 'Low', value: TASK_PRIORITIES.LOW as FilterPriority, color: PRIORITY_COLORS[TASK_PRIORITIES.LOW] },
+    { label: 'None', value: TASK_PRIORITIES.NONE as FilterPriority, color: PRIORITY_COLORS[TASK_PRIORITIES.NONE] },
   ];
 
   return (

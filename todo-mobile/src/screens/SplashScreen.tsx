@@ -27,10 +27,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 }) => {
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const scaleAnim = React.useRef(new Animated.Value(0.8)).current;
+  const [hasFadedOut, setHasFadedOut] = React.useState(false);
 
   // Animation on mount
   useEffect(() => {
     if (isVisible) {
+      setHasFadedOut(false);
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -50,12 +52,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         duration: 300,
         useNativeDriver: true,
       }).start(() => {
+        setHasFadedOut(true);
         onComplete?.();
       });
     }
   }, [isVisible]);
 
-  if (!isVisible && fadeAnim._value === 0) {
+  if (!isVisible && hasFadedOut) {
     return null;
   }
 

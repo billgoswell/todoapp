@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"testing"
+	"time"
 
 	"github.com/billgoswell/commandlinetodo-server/internal/models"
 )
@@ -145,5 +146,78 @@ func TestConvertListToMap(t *testing.T) {
 	}
 	if result["display_order"] != 0 {
 		t.Errorf("expected display_order 0, got %v", result["display_order"])
+	}
+}
+
+// TestConvertTaskMaps_OptionalTimestamps verifies that optional timestamps
+// survive the pull conversion. GetTasksSince returns these as *time.Time,
+// which convertTaskMaps must translate to *int64 unix timestamps.
+// Regression test: these fields were previously dropped (asserted as *int64).
+func TestConvertTaskMaps_OptionalTimestamps(t *testing.T) {
+	completed := time.Unix(2000, 0)
+	due := time.Unix(3000, 0)
+	deleted := time.Unix(4000, 0)
+	var unset *time.Time
+
+	tasks := []map[string]interface{}{
+		{
+			"id":             1,
+			"client_id":      "uuid-123",
+			"todo_list_id":   1,
+			"todo":           "Test task",
+			"priority":       3,
+			"done":           true,
+			"deleted":        true,
+			"date_added":     int64(1000),
+			"date_completed": &completed,
+			"due_date":       &due,
+			"deleted_at":     &deleted,
+			"created_at":     int64(1000),
+			"updated_at":     int64(1001),
+			"version":        1,
+		},
+		{
+			"id":             2,
+			"client_id":      "uuid-456",
+			"todo_list_id":   1,
+			"todo":           "No optional dates",
+			"priority":       1,
+			"done":           false,
+			"deleted":        false,
+			"date_added":     int64(1000),
+			"date_completed": unset,
+			"due_date":       unset,
+			"deleted_at":     unset,
+			"created_at":     int64(1000),
+			"updated_at":     int64(1001),
+			"version":        1,
+		},
+	}
+
+	result := convertTaskMaps(tasks)
+	if len(result) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(result))
+	}
+
+	withDates := result[0]
+	if withDates.DateCompleted == nil || *withDates.DateCompleted != 2000 {
+		t.Errorf("expected date_completed 2000, got %v", withDates.DateCompleted)
+	}
+	if withDates.DueDate == nil || *withDates.DueDate != 3000 {
+		t.Errorf("expected due_date 3000, got %v", withDates.DueDate)
+	}
+	if withDates.DeletedAt == nil || *withDates.DeletedAt != 4000 {
+		t.Errorf("expected deleted_at 4000, got %v", withDates.DeletedAt)
+	}
+
+	withoutDates := result[1]
+	if withoutDates.DateCompleted != nil {
+		t.Errorf("expected nil date_completed, got %v", withoutDates.DateCompleted)
+	}
+	if withoutDates.DueDate != nil {
+		t.Errorf("expected nil due_date, got %v", withoutDates.DueDate)
+	}
+	if withoutDates.DeletedAt != nil {
+		t.Errorf("expected nil deleted_at, got %v", withoutDates.DeletedAt)
 	}
 }

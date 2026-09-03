@@ -1,3 +1,10 @@
+// Manual database schema test script.
+// Excluded from the module build; run directly with:
+//
+//	go run test_db_integration.go
+//
+//go:build ignore
+
 package main
 
 import (
@@ -8,6 +15,10 @@ import (
 	"path/filepath"
 	_ "modernc.org/sqlite"
 )
+
+func main() {
+	testDbSchema()
+}
 
 func testDbSchema() {
 	// Create temp database

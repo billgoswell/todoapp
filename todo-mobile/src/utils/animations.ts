@@ -85,7 +85,7 @@ export const fadeIn = (duration: number = 300) => {
           duration,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -106,7 +106,7 @@ export const fadeOut = (duration: number = 300) => {
           duration,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -128,7 +128,7 @@ export const slideUp = (distance: number = 50, duration: number = 400) => {
           duration,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -150,7 +150,7 @@ export const slideDown = (distance: number = 50, duration: number = 300) => {
           duration,
           easing: Easing.in(Easing.cubic),
           useNativeDriver: true,
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -166,18 +166,18 @@ export const scale = (
   toScale: number = 1,
   duration: number = 300
 ) => {
-  const scale = new Animated.Value(fromScale);
+  const scaleValue = new Animated.Value(fromScale);
 
   return {
-    scale,
+    scale: scaleValue,
     start: () =>
       new Promise<void>((resolve) => {
-        Animated.timing(scale, {
+        Animated.timing(scaleValue, {
           toValue: toScale,
           duration,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -248,7 +248,7 @@ export const bounce = (height: number = 20, duration: number = 600) => {
             easing: Easing.in(Easing.cubic),
             useNativeDriver: true,
           }),
-        ]).start(resolve);
+        ]).start(() => resolve());
       }),
   };
 };
@@ -275,7 +275,7 @@ export const expandHeight = (
           duration,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: false, // Can't use native driver for width/height
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -306,7 +306,7 @@ export const rotate = (
           duration,
           easing: Easing.linear,
           useNativeDriver: true,
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -349,15 +349,11 @@ export const sequence = async (animations: (() => Promise<void>)[]) => {
 
 /**
  * Spring animation (bouncy animation)
- * @param duration - Animation duration in milliseconds (default: 500)
+ * Note: Animated.spring is physics-driven (tension/friction), not duration-based.
  * @param tension - Spring tension (default: 40)
  * @param friction - Spring friction (default: 7)
  */
-export const spring = (
-  duration: number = 500,
-  tension: number = 40,
-  friction: number = 7
-) => {
+export const spring = (tension: number = 40, friction: number = 7) => {
   const value = new Animated.Value(0);
 
   return {
@@ -369,7 +365,7 @@ export const spring = (
           tension,
           friction,
           useNativeDriver: true,
-        }).start(resolve);
+        }).start(() => resolve());
       }),
   };
 };
@@ -407,7 +403,7 @@ export const shake = (distance: number = 10, duration: number = 400) => {
             duration: duration / 4,
             useNativeDriver: true,
           }),
-        ]).start(resolve);
+        ]).start(() => resolve());
       }),
   };
 };

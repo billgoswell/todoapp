@@ -26,7 +26,7 @@ class SyncRetryManagerService {
   private config: RetryConfig;
   private attempts: Map<string, RetryAttempt[]> = new Map();
   private activeRetries: Set<string> = new Set();
-  private retryTimers: Map<string, NodeJS.Timer> = new Map();
+  private retryTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   constructor(config: RetryConfig = {
     maxAttempts: 5,
@@ -100,14 +100,15 @@ class SyncRetryManagerService {
         );
 
         return new Promise((resolve) => {
+          const timerKey = `${operationId}-${attemptNumber}`;
           const timer = setTimeout(() => {
-            this.retryTimers.delete(operationId);
+            this.retryTimers.delete(timerKey);
             this.executeWithRetry(operationId, attemptNumber + 1)
               .then(resolve)
               .catch(() => resolve(false));
           }, delayMs);
 
-          this.retryTimers.set(`${operationId}-${attemptNumber}`, timer);
+          this.retryTimers.set(timerKey, timer);
         });
       } else {
         console.error(
@@ -221,6 +222,16 @@ class SyncRetryManagerService {
    */
   clearAllHistory(): void {
     this.attempts.clear();
+  }
+
+  /**
+   * Reset failure state after connectivity is restored.
+   * Cancels any pending backoff retries and clears attempt history
+   * so the next sync starts with a fresh backoff schedule.
+   */
+  resetFailureCount(): void {
+    this.cancelAll();
+    this.clearAllHistory();
   }
 }
 

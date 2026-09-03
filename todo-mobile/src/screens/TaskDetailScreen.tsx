@@ -44,7 +44,7 @@ export const TaskDetailScreen: React.FC<TaskDetailScreenProps> = ({
   const existingTask = useTaskById(taskId || null);
 
   const [text, setText] = useState('');
-  const [priority, setPriority] = useState(TASK_PRIORITIES.NONE);
+  const [priority, setPriority] = useState<number>(TASK_PRIORITIES.NONE);
   const [dueDate, setDueDate] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 

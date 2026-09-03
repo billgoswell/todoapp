@@ -37,7 +37,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   showDueDate = true,
   showPriority = true,
 }) => {
-  const isOverdue = task.due_date && task.due_date < Math.floor(Date.now() / 1000) && !task.done;
+  const isOverdue = !!task.due_date && task.due_date < Math.floor(Date.now() / 1000) && !task.done;
 
   // Animation values
   const fadeInAnim = React.useRef(new Animated.Value(0)).current;

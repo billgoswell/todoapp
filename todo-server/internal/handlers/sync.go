@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"log"
+	"time"
 
 	"github.com/billgoswell/commandlinetodo-server/internal/db"
 	"github.com/billgoswell/commandlinetodo-server/internal/middleware"
@@ -94,8 +95,8 @@ func Push(database *db.DB) gin.HandlerFunc {
 
 		// Convert task models to maps and prepare for batch upsert
 		if len(req.Tasks) > 0 {
-			taskMaps := make([]map[string]any, len(req.Tasks))
-			for i, task := range req.Tasks {
+			taskMaps := make([]map[string]any, 0, len(req.Tasks))
+			for _, task := range req.Tasks {
 				taskMap := convertTaskToMap(task)
 				taskMap["user_id"] = userID
 
@@ -116,7 +117,7 @@ func Push(database *db.DB) gin.HandlerFunc {
 				}
 				// else: use existing TodoListID (backward compatibility)
 
-				taskMaps[i] = taskMap
+				taskMaps = append(taskMaps, taskMap)
 			}
 
 			// Upsert all tasks in a single batch operation and capture ID mappings
@@ -147,6 +148,28 @@ func Push(database *db.DB) gin.HandlerFunc {
 
 // Helper functions to convert between maps and models
 
+// optionalUnix converts an optional timestamp from the repository layer
+// (*time.Time or *int64) to a *int64 unix timestamp, nil if unset
+func optionalUnix(val any) *int64 {
+	switch v := val.(type) {
+	case *time.Time:
+		if v == nil {
+			return nil
+		}
+		unix := v.Unix()
+		return &unix
+	case *int64:
+		return v
+	case int64:
+		if v == 0 {
+			return nil
+		}
+		return &v
+	default:
+		return nil
+	}
+}
+
 func convertTaskMaps(tasks []map[string]any) []models.Task {
 	var result []models.Task
 	for _, t := range tasks {
@@ -164,24 +187,12 @@ func convertTaskMaps(tasks []map[string]any) []models.Task {
 		}
 
 		// Handle optional timestamps
-		if dc := t["date_completed"]; dc != nil {
-			if dcVal, ok := dc.(*int64); ok && dcVal != nil {
-				task.DateCompleted = dcVal
-			}
-		}
-		if dd := t["due_date"]; dd != nil {
-			if ddVal, ok := dd.(*int64); ok && ddVal != nil {
-				task.DueDate = ddVal
-			}
-		}
+		task.DateCompleted = optionalUnix(t["date_completed"])
+		task.DueDate = optionalUnix(t["due_date"])
+		task.DeletedAt = optionalUnix(t["deleted_at"])
 		if da := t["date_added"]; da != nil {
 			if daVal, ok := da.(int64); ok {
 				task.DateAdded = daVal
-			}
-		}
-		if del := t["deleted_at"]; del != nil {
-			if delVal, ok := del.(*int64); ok && delVal != nil {
-				task.DeletedAt = delVal
 			}
 		}
 
